@@ -1,0 +1,33 @@
+name: with-better-auth sign-in
+on:
+  pull_request:
+    paths:
+      - with-better-auth/**
+      - .github/workflows/with-better-auth-e2e.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: with-better-auth
+    env:
+      CI: true
+      MOCKATOO_TEST_EMAIL: ${{ secrets.MOCKATOO_TEST_EMAIL }}
+      MOCKATOO_TEST_PASSWORD: ${{ secrets.MOCKATOO_TEST_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: npx -y prisma@6 generate
+      - run: npx tsc --noEmit
+      - run: npx playwright install --with-deps chromium
+      - name: Note when the full sign-in will be skipped
+        if: env.MOCKATOO_TEST_EMAIL == '' || env.MOCKATOO_TEST_PASSWORD == ''
+        run: echo "::notice::MOCKATOO_TEST_EMAIL or MOCKATOO_TEST_PASSWORD is not set; the full sign-in test will be skipped."
+      - run: npx playwright test --reporter=list
